@@ -1,6 +1,7 @@
 class ModelView {
   constructor() {
-    this.canvasId = null
+    this.canvasBgId = null
+    this.canvasLineId = null
     this.drawModelViewScanLineInterval = null; // 循环定时器
     this.windowWidth = 750
     this.windowHeight = 920
@@ -24,13 +25,16 @@ class ModelView {
     this.startY = (this.windowHeight - this.boxH)/2 // 窗口起点y
     this.scanCode = true // 是否开启扫描线
     this.drawLineX = this.startX // 画线起点x
+    this.drawLineImage = [] // 线的对象
+    this.lineImageUrl = '' // 线的对象URL
     this.scanLineColor = "#06f"; // 线的颜色
     this.line_width = this.boxW  // 线宽
     this.line_height = 2 // 线高(粗细)
-    this.drawScanLineInCrement = 10; // 增量
+    this.drawScanLineInCrement = 1; // 增量
     this.drawScanLineCurrentY = this.startY; // 显示线的Y值,即画线起点x
     this.currentTime = 150; // 画线定时器循环间隔时间
-    this.$el = null // canvas对象
+    this.$bgEl = null // canvasBg对象
+    this.$lineEl = null // canvasLine对象
     this.snapshot = [] // 截取画布集合
     this.textNode = [] // 文本节点
     this.defaultTextSize = 14
@@ -46,7 +50,7 @@ class ModelView {
     this.reset = () => {
       this.draw({imageData: this.snapshot[0]})
     }
-    this.init = ({canvasId,options,textNode,limitY=0.8}) =>{
+    this.init = ({canvasBgId,canvasLineId,options,textNode,limitY=0.8}) =>{
       return new Promise((resolve, reject) => {
         const result = wx.getSystemInfoSync()
         this.windowHeight = result.windowHeight
@@ -55,11 +59,13 @@ class ModelView {
         this.startY = (this.windowHeight*limitY - this.boxH)/2
         this.drawLineX = this.startX + 1
         this.drawLineY = this.startY
-        if (!canvasId) {
+        if (!canvasBgId || !canvasLineId) {
           throw new ReferenceError("Canvas ID cannot be empty")
         }
-        this.$el = wx.createCanvasContext(canvasId)
-        this.canvasId = canvasId
+        this.$bgEl = wx.createCanvasContext(canvasBgId)
+        this.canvasBgId = canvasBgId
+        this.$lineEl = wx.createCanvasContext(canvasLineId)
+        this.canvasLineId = canvasLineId
         if (options) {
           if (options.startX) {
             this.modleAutoX = false
@@ -74,7 +80,7 @@ class ModelView {
             this.maxBoxW = options.maxBoxW
           }
           Object.keys(options).map(item => {
-            if (item !=='$el' && item !=='drawModelViewScanLineInterval' && item !=='textNode' && item !=='snapshot' && this[item] !== undefined) {
+            if (item !=='$bgEl' && item !=='drawModelViewScanLineInterval' && item !=='textNode' && item !=='snapshot' && this[item] !== undefined) {
               if (item === 'boxW' || item === 'boxH') {
                 if (item === 'boxW' && options[item] > this.maxBoxW) {
                   this.boxW = this.maxBoxW
@@ -93,14 +99,16 @@ class ModelView {
           this.textNode = textNode
         }
         this.draw({rote:options.rote})
+        // 初始化扫描线
+        this.initLine(options.lineImageUrl)
         // 取景框图片(网络图片要通过 getImageInfo / downloadFile 先下载)
         if (this.boxImagePath.length > 0) {
           const initBoximgStartX = options.initBoximgStartX ? options.initBoximgStartX : 0
           const initBoximgStartY = options.initBoximgStartY ? options.initBoximgStartY : 0
           const initBoximgW = options.initBoximgW ? options.initBoximgW : 0
           const initBoximgH = options.initBoximgH ? options.initBoximgH : 0
-          // this.drawBoxImage(this.boxImagePath,this.startX,this.startY,this.boxW,this.boxH,options.rote)
-          this.drawBoxImage(this.boxImagePath,this.startX+initBoximgStartX,this.startY+initBoximgStartY,initBoximgW,initBoximgH,options.rote)
+          // this.drawUrlToCanvas(this.boxImagePath,this.startX,this.startY,this.boxW,this.boxH,options.rote,this.$bgEl)
+          this.drawUrlToCanvas(this.boxImagePath,this.startX+initBoximgStartX,this.startY+initBoximgStartY,initBoximgW,initBoximgH,options.rote,this.$bgEl,true)
         }
         this.drawText()
         setTimeout(() => {
@@ -117,6 +125,18 @@ class ModelView {
           })
         },1000)
       })
+    }
+    this.initLine = (img) => {
+      if (typeof  img === 'string') {
+        this.drawUrlToCanvas(img,0,0,this.boxW,this.line_height,false,this.$lineEl).then(re => {
+          this.getCanvasBlock(0,0,this.boxW,this.line_height,this.canvasLineId).then(data => {
+            this.drawLineImage = data.data
+            console.log(this.drawLineImage);
+          })
+        })
+      } else if ( Object.prototype.toString.call(img) === '[object Array]' && img.length > 0) {
+        this.drawLineImage = img
+      }
     }
     this.draw = ({cover,imageData,textNode,rote=false}) => {
       // 开启模态框
@@ -207,59 +227,69 @@ class ModelView {
     this.drawModelView = ({windowHeight,windowWidth,borderX,borderY,borderW,borderH,cornerX,cornerY,cornerW,cornerH,clearX,clearY,clearW,clearH},rote) => {
       // 旋转
       if (rote !== false) {
-        this.$el.translate(this.windowWidth, 0)
-        this.$el.rotate(rote * Math.PI / 180)
+        this.$bgEl.translate(this.windowWidth, 0)
+        this.$bgEl.rotate(rote * Math.PI / 180)
       }
       // 填充的样式
-      this.$el.fillStyle = this.modelViewBackgroundColor;
-      this.$el.fillRect(0, 0, windowWidth, windowHeight)
+      this.$bgEl.fillStyle = this.modelViewBackgroundColor;
+      this.$bgEl.fillRect(0, 0, windowWidth, windowHeight)
       if (this.showBorder) {
         // 画边框
-        this.$el.setStrokeStyle(this.modelViewBorderColor)
-        this.$el.setLineWidth(5)
-        this.$el.strokeRect(borderX, borderY, borderW, borderH)  
+        this.$bgEl.setStrokeStyle(this.modelViewBorderColor)
+        this.$bgEl.setLineWidth(5)
+        this.$bgEl.strokeRect(borderX, borderY, borderW, borderH)  
       }
       if (this.showCorner) {
         // 画角
-        this.$el.setFillStyle(this.cornerColor)
-        this.$el.fillRect(cornerX, cornerY, 10, 10)
-        this.$el.fillRect(cornerX, cornerH, 10, 10)
-        this.$el.fillRect(cornerW, cornerY, 10, 10)
-        this.$el.fillRect(cornerW, cornerH, 10, 10)
+        this.$bgEl.setFillStyle(this.cornerColor)
+        this.$bgEl.fillRect(cornerX, cornerY, 10, 10)
+        this.$bgEl.fillRect(cornerX, cornerH, 10, 10)
+        this.$bgEl.fillRect(cornerW, cornerY, 10, 10)
+        this.$bgEl.fillRect(cornerW, cornerH, 10, 10)
       }
 
-      this.$el.clearRect(clearX, clearY, clearW, clearH)
-      this.$el.fill()
+      this.$bgEl.clearRect(clearX, clearY, clearW, clearH)
+      this.$bgEl.fill()
       // 回旋
       if (rote !== false) {
-        this.$el.rotate((-rote) * Math.PI / 180)
-        this.$el.translate(-this.windowWidth, 0)
+        this.$bgEl.rotate((-rote) * Math.PI / 180)
+        this.$bgEl.translate(-this.windowWidth, 0)
       }
-      this.$el.draw()
+      this.$bgEl.draw()
     }
     this.drawModelViewScanLine = (rote) => {
-      // 旋转
-      if (rote !== false) {
-        this.$el.translate(this.windowWidth, 0)
-        this.$el.rotate(rote * Math.PI / 180)
-      }
+      
       // 填充的样式
       if (this.scanCode) { // 是否开启扫描
-        this.$el.clearRect(this.startX, this.startY, this.boxW, this.boxH)
         // 取景框图片(网络图片要通过 getImageInfo / downloadFile 先下载)
-        // if (this.boxImageData.length > 0) {
-        //   this.drawBoxImage(this.boxImagePath,this.startX,this.startY,this.boxW,this.boxH)
-        // }
-        this.$el.fillStyle = this.scanLineColor;
-        this.$el.rect(this.drawLineX, this.drawScanLineCurrentY, this.line_width, this.line_height)
-        this.$el.fill()
+        if (this.lineImageUrl.length > 0) {
+        // if (this.drawLineImage.length > 0) {
+          // this.$lineEl.clearRect(this.startX, this.startY, this.boxW, this.boxH)
+          // console.log(this.drawLineImage.length);
+          // console.log(Math.ceil(this.drawLineX),Math.ceil(this.drawScanLineCurrentY),this.line_width,this.line_height);
+          // this.drawImageData(this.drawLineImage,Math.ceil(this.drawLineX), Math.ceil(this.drawScanLineCurrentY), this.line_width, this.line_height,this.canvasLineId).catch(err=> {
+          //   // console.log(err);
+          // })
+          this.drawUrlToCanvas(this.lineImageUrl,Math.ceil(this.drawLineX), Math.ceil(this.drawScanLineCurrentY), this.line_width, this.line_height,false,this.$lineEl)
+        } else {
+          // 旋转
+          if (rote !== false) {
+            this.$lineEl.translate(this.windowWidth, 0)
+            this.$lineEl.rotate(rote * Math.PI / 180)
+          }
+          this.$lineEl.clearRect(this.startX, this.startY, this.boxW, this.boxH)
+          this.$lineEl.fillStyle = this.scanLineColor;
+          this.$lineEl.rect(this.drawLineX, this.drawScanLineCurrentY, this.line_width, this.line_height)
+          this.$lineEl.fill()
+          // 回旋
+          if (rote !== false) {
+            this.$lineEl.rotate((-rote) * Math.PI / 180)
+            this.$lineEl.translate(-this.windowWidth, 0)
+          }
+          this.$lineEl.draw() // 继续上一次的画
+        }
       }
-      // 回旋
-      if (rote !== false) {
-        this.$el.rotate((-rote) * Math.PI / 180)
-        this.$el.translate(-this.windowWidth, 0)
-      }
-      this.$el.draw(true) // 继续上一次的画
+      
     }
     this.drawText = (list=[],extend=true) => {
       if (list.length < 1) {
@@ -275,9 +305,9 @@ class ModelView {
               item._x = (this.windowWidth-item.size)/2
               console.log(item._x,8888);
             } else {
-              // this.$el.font = 'italic bold '+item.size+'px cursive'
-              this.$el.setFontSize(item.size)
-              const metrics = this.$el.measureText(item.text)
+              // this.$bgEl.font = 'italic bold '+item.size+'px cursive'
+              this.$bgEl.setFontSize(item.size)
+              const metrics = this.$bgEl.measureText(item.text)
               item._x = (this.windowWidth/0.8-metrics.width)/2
               console.log(item._x,8888);
             }
@@ -286,9 +316,9 @@ class ModelView {
           }
           if (item._y === 'center') {
             if (item.rote !== false) {
-              // this.$el.font = 'italic bold '+item.size+'px cursive'
-              this.$el.setFontSize(item.size)
-              const metrics = this.$el.measureText(item.text)
+              // this.$bgEl.font = 'italic bold '+item.size+'px cursive'
+              this.$bgEl.setFontSize(item.size)
+              const metrics = this.$bgEl.measureText(item.text)
               item._y = (this.windowHeight*this.limitTextY-metrics.width)/2
             } else {
               item._y = (this.windowHeight-item.size)/2
@@ -302,8 +332,8 @@ class ModelView {
       })
       list.map(({rote, text, _x, _y, color='#fff', size=20}) => {
         if (text) {
-          this.$el.setFontSize(size)
-          this.$el.setFillStyle(color)
+          this.$bgEl.setFontSize(size)
+          this.$bgEl.setFillStyle(color)
           if (_x < 0) {
             _x = this.windowWidth + _x
           }
@@ -311,15 +341,15 @@ class ModelView {
             _y = this.windowHeight + _y
           }
           if (rote !== false) {
-            this.$el.translate(this.windowWidth, 0)
-            this.$el.rotate(rote * Math.PI / 180)
-            this.$el.fillText(text, _y, (this.windowWidth-_x))
-            this.$el.rotate((-rote) * Math.PI / 180)
-            this.$el.translate(-this.windowWidth, 0)
+            this.$bgEl.translate(this.windowWidth, 0)
+            this.$bgEl.rotate(rote * Math.PI / 180)
+            this.$bgEl.fillText(text, _y, (this.windowWidth-_x))
+            this.$bgEl.rotate((-rote) * Math.PI / 180)
+            this.$bgEl.translate(-this.windowWidth, 0)
           } else {
-            this.$el.fillText(text, _x, _y)
+            this.$bgEl.fillText(text, _x, _y)
           }
-          this.$el.draw(extend)
+          this.$bgEl.draw(extend)
         }
       })
     }
@@ -327,13 +357,13 @@ class ModelView {
       this.draw({cover:true, imageData:data, textNode})
     },
     this.getSnapShot = () => {
-      if (!this.canvasId) {
+      if (!this.canvasBgId) {
         throw new ReferenceError("Invalid object, please initialize first!")
       }
       const that = this
       return new Promise((resolve,reject) => {
         wx.canvasGetImageData({
-          canvasId: that.canvasId,
+          canvasId: that.canvasBgId,
           x: 0,
           y: 0,
           width: that.windowWidth,
@@ -350,14 +380,14 @@ class ModelView {
     this.getSnapShotArr = () => {
       return this.snapshot
     }
-    this.getCanvasBlock = (x=this.startX,y=this.startY,width=this.boxW,height=this.boxH) => {
-      if (!this.canvasId) {
+    this.getCanvasBlock = (x=this.startX,y=this.startY,width=this.boxW,height=this.boxH,canvasId) => {
+      if (!this.canvasBgId || !this.canvasLineId) {
         throw new ReferenceError("Invalid object, please initialize first!")
       }
       const that = this
       return new Promise((resolve,reject) => {
         wx.canvasGetImageData({
-          canvasId: that.canvasId,
+          canvasId,
           x,
           y,
           width,
@@ -371,17 +401,19 @@ class ModelView {
         })
       })
     }
-    this.drawImageData = (data=[], x=0, y=0, width=this.windowWidth,height=this.windowHeight) => {
+    this.drawImageData = (data=[], x=0, y=0, width=this.windowWidth,height=this.windowHeight,canvasId=this.canvasBgId) => {
       return new Promise((resolve, reject) => {
         if (data.length < 1 && this.snapshot.length > 0) {
           data = this.snapshot[this.snapshot.length - 1]
-        } else {
+        } else if (data.length < 1) {
           reject({ state:false,message: '未初始化或参数类型有误'})
         }
-        // const data444 = new Uint8ClampedArray([255, 0, 0, 1])
+        // console.log(data.length);
+        // const imageData = new Uint8ClampedArray([110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113])
         // console.log(typeof data444);
+        // console.log(Math.ceil(this.drawLineX),Math.ceil(this.drawScanLineCurrentY),this.line_width,this.line_height);
         wx.canvasPutImageData({
-          canvasId: this.canvasId,
+          canvasId,
           x,
           y,
           width,
@@ -391,6 +423,7 @@ class ModelView {
             resolve(res)
           },
           fail (err) {
+            // console.log(err);
             reject(err)
           }
         })
@@ -399,15 +432,15 @@ class ModelView {
     this.rote = ({rote=false}) => {
       this.draw({rote})
     }
-    this.getCanvasBlockImage = (x=this.startX,y=this.startY,width=this.boxW,height=this.boxH) => {
+    this.getCanvasBlockImage = (x=this.startX,y=this.startY,width=this.boxW,height=this.boxH,cavasId) => {
       //画布转换成临时图片
-      if (!this.canvasId) {
+      if (!this.canvasBgId) {
         throw new ReferenceError("Invalid object, please initialize first!")
       }
       const that = this
       return new Promise((resolve,reject) => {
         wx.canvasToTempFilePath({
-          canvasId: that.canvasId,
+          cavasId: cavasId,
           x,
           y,//(frame.height - frame.width)/2,
           width,
@@ -433,19 +466,26 @@ class ModelView {
         })
       })
     },
-    this.drawBoxImage = (path,x,y,w,h,rote=false) => {
-      // 旋转
-      if (rote !== false) {
-        this.$el.translate(this.windowWidth, 0)
-        this.$el.rotate(rote * Math.PI / 180)
-      }
-      this.$el.drawImage(path, x, y,w,h);
-      // 回旋
-      if (rote !== false) {
-        this.$el.rotate((-rote) * Math.PI / 180)
-        this.$el.translate(-this.windowWidth, 0)
-      }
-      this.$el.draw(true)
+    this.drawUrlToCanvas = (path,x,y,w,h,rote=false,el,cover=false) => {
+      return new Promise((resolve,reject) => {
+        // 旋转
+        if (rote !== false) {
+          el.translate(this.windowWidth, 0)
+          el.rotate(rote * Math.PI / 180)
+        }
+        el.drawImage(path, x, y,w,h);
+        // 回旋
+        if (rote !== false) {
+          el.rotate((-rote) * Math.PI / 180)
+          el.translate(-this.windowWidth, 0)
+        }
+        el.draw(cover,()=> {
+          resolve()
+        })
+      })
+    }
+    this.clearInterval = () => {
+      clearInterval(this.drawModelViewScanLineInterval)
     }
   }
 }

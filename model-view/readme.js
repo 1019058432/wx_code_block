@@ -9,46 +9,13 @@ function CSS() {
     width: 100%;
     height: 100%;
   }
-  .scan-content {
-    position: fixed;
-    z-index: 999;
-  }
-  .scan-line {
-    position: fixed;
-    width: 10px;
-    height: auto;
-    z-index: 999;
-    animation: viewlinear 2.5s linear infinite;
-  }
-  @-webkit-keyframes viewlinear {
-    0% {
-        transform: translateY(0rpx);
-    }
-  
-    100% {
-        transform: translateY(350rpx);
-    }
-  }
-  
-  @keyframes viewlinear {
-    0% {
-        transform: translateY(0rpx);
-    }
-  
-    100% {
-        transform: translateY(350rpx);
-    }
-  }
   `
 }
 
 function wxml() {
   const str = `
-  <canvas wx:if="{{showCanvasModelView}}" class="canvasOne" style="position:fixed;top:0;left:0;right:0;bottom:0;" canvas-id="myCanvas" binderror="errorModelView"></canvas>
-  
-  <cover-view class="scan-content" style="top:{{scanLineTop}}px;left:{{scanLineLeft}}px;height:{{scanLineWidth}}px;width:{{scanLineWidth}}px;transform:rotate({{scanLineRote}}deg);">
-    <cover-image wx:if="{{showScanLine}}" class="scan-line" style="width:{{scanLineWidth}}px;height:auto;" src="./images/scan-line.png"></cover-image>
-  </cover-view>
+  <canvas wx:if="{{showCanvasModelView}}" id="canvasModelView" class="canvasOne" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:10;" canvas-id="modelViewBgCanvas" binderror="errorModelView"></canvas>
+        <canvas wx:if="{{showCanvasModelView}}" id="canvasModelView" class="canvasOne" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:11;" canvas-id="modelViewLineCanvas" binderror="errorModelView"></canvas>
   `
 }
 function js(flag) {
@@ -60,11 +27,7 @@ function js(flag) {
   // data
   const data = {
     showCanvasModelView: false, // 显示模态框
-    showScanLine: false, // 显示扫描线
-    scanLineTop: 0, // CSS实现线时的上边距
-    scanLineLeft: 0, // CSS实现线时的左边距
-    scanLineWidth: 10, // CSS实现线时的宽度
-    scanLineRote: 0, // 线旋转角度
+    
   }
   // methods
   if (flag) {
@@ -75,6 +38,7 @@ function openModelView () {
   // 开启模态框
   const modelView = new ModelView()
   mark = modelView
+  
   const textNode = [
     {
       text: '测试1',
@@ -89,6 +53,12 @@ function openModelView () {
       _y: '-10%'
     },
     {
+      text: '测试333',
+      rote: 90,
+      _x: 10,
+      _y: 'center'
+    },
+    {
       text: '请将图中所示位置放入框内并保持稳定',
       rote: 90,
       _x: -20,
@@ -96,42 +66,60 @@ function openModelView () {
     }
   ]
   const rote = false
-  const boxImagePath = './images/mask3.png'//path
+  const boxImagePath = '../../images/scan-qrcode.png'//path
   modelView.init({
-    canvasId: 'myCanvas',
+    canvasBgId: 'modelViewBgCanvas',
+    canvasLineId: 'modelViewLineCanvas',
     options: {
       // startX: 150,
       // startY:50,
-      maxBoxW: 150,
-      maxBoxH: 250,
-      boxW: this.data.mask_img_width,
-      boxH: this.data.mask_img_height,
-      line_width: 99,
+      maxBoxW: 200,
+      maxBoxH: 300,
+      boxW: 165,
+      boxH: 282,
+      line_width: 160,
       showBorder: false,
-      scanCode: false,
+      // scanCode: false,
+      currentTime: 20,
+      lineImageUrl: '../../images/scan-line.png',
       rote: rote,
       boxImagePath,
+      initBoximgStartX: 37,
+      initBoximgStartY: 16,
+      initBoximgW: 94,
+      initBoximgH: 94,
+      // limitTextY: 0.8,
+      // limitY:0.8,
     },
     textNode
   }).then(response => {
-    // console.log(this.data.mask_img_width);
-    // console.log(this.data.mask_img_height);
     // 控制CSS属性上挂载的变量
     if (rote !== false) {
       this.setData({
-        showScanLine: true,
+        // showScanLine: true,
+        // animation: this.scanLineAnimation(),
+        classScanLine: 'scan-line',
         scanLineTop: modelView.startX,
         scanLineLeft: modelView.startY,
         scanLineWidth: modelView.boxW,
         scanLineRote: rote
+      },() => {
+      this.setData({
+        classScanLine: 'scan-line',
+      })
       })
     } else {
       this.setData({
-        showScanLine: true,
+        // showScanLine: true,
+        // animation: this.scanLineAnimation(),
         scanLineTop: modelView.startY,
         scanLineLeft: modelView.startX,
         scanLineWidth: modelView.boxW,
         scanLineRote: rote
+      },() => {
+        this.setData({
+          classScanLine: 'scan-line',
+        })
       })
     }
 
