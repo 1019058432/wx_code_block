@@ -19,7 +19,7 @@ class ModelView {
     this.modleAutoX = true // 是否托管窗口位置X 
     this.modleAutoY = true // 是否托管窗口位置Y 
     this.limitY = 0.8 // 限制窗口居中高度
-    this.limitTextY = 1 // 限制窗口文字居中高度约束
+    this.limitTextY = 0.8 // 限制窗口文字居中高度约束
     this.startX = (this.windowWidth - this.boxW)/2 // 窗口起点X
     this.startY = (this.windowHeight - this.boxH)/2 // 窗口起点y
     this.scanCode = true // 是否开启扫描线
@@ -33,6 +33,7 @@ class ModelView {
     this.$el = null // canvas对象
     this.snapshot = [] // 截取画布集合
     this.textNode = [] // 文本节点
+    this.defaultTextSize = 14
     this.getPercent = (text) => { // 获取百分值
       const reg = new RegExp(/^(\-?[1-9]\d+)%$/i)
       const arr = text.match(reg)
@@ -265,34 +266,39 @@ class ModelView {
         list = this.textNode 
       }
       list = list.map(item => {
-        let fontSize = item.size ? item.size : 14
-        if (item._x === 'center') {
-          if (item.rote !== false) {
-            item._x = (this.windowWidth-fontSize)/2
-            console.log(item._x,8888);
-          } else {
-            // this.$el.font = 'italic bold '+item.size+'px cursive'
-            this.$el.setFontSize(item.size)
-            const metrics = this.$el.measureText(item.text)
-            item._x = (this.windowWidth/0.8-metrics.width)/2
-            console.log(item._x,8888);
+        if (item.text) {
+          if (!item.size) {
+            item.size = this.defaultTextSize
           }
-        } else if (typeof item._x === 'string') {
-          item._x = this.windowWidth * this.getPercent(item._x)
-        }
-        if (item._y === 'center') {
-          if (item.rote !== false) {
-            // this.$el.font = 'italic bold '+item.size+'px cursive'
-            this.$el.setFontSize(item.size)
-            const metrics = this.$el.measureText(item.text)
-            item._y = (this.windowHeight*this.limitTextY-metrics.width)/2
-          } else {
-            item._y = (this.windowHeight-fontSize)/2
+          if (item._x === 'center') {
+            if (item.rote !== false) {
+              item._x = (this.windowWidth-item.size)/2
+              console.log(item._x,8888);
+            } else {
+              // this.$el.font = 'italic bold '+item.size+'px cursive'
+              this.$el.setFontSize(item.size)
+              const metrics = this.$el.measureText(item.text)
+              item._x = (this.windowWidth/0.8-metrics.width)/2
+              console.log(item._x,8888);
+            }
+          } else if (typeof item._x === 'string') {
+            item._x = this.windowWidth * this.getPercent(item._x)
           }
-        } else if (typeof item._y === 'string') {
-          item._y = this.windowHeight * this.getPercent(item._y)
+          if (item._y === 'center') {
+            if (item.rote !== false) {
+              // this.$el.font = 'italic bold '+item.size+'px cursive'
+              this.$el.setFontSize(item.size)
+              const metrics = this.$el.measureText(item.text)
+              item._y = (this.windowHeight*this.limitTextY-metrics.width)/2
+            } else {
+              item._y = (this.windowHeight-item.size)/2
+            }
+          } else if (typeof item._y === 'string') {
+            item._y = this.windowHeight * this.getPercent(item._y)
+          }
+          return new TextNode(item)
         }
-        return new TextNode(item)
+        return false
       })
       list.map(({rote, text, _x, _y, color='#fff', size=20}) => {
         if (text) {
