@@ -1,15 +1,20 @@
 function CSS() {
   const str = `
+  .canvasOne {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+  }
   .scan-content {
     position: fixed;
-    /* width: 100px;
-    height: auto; */
     z-index: 999;
   }
   .scan-line {
     position: fixed;
-    /* left: 35%;
-    top: 50px; */
     width: 10px;
     height: auto;
     z-index: 999;
@@ -87,7 +92,7 @@ function openModelView () {
       text: '请将图中所示位置放入框内并保持稳定',
       rote: 90,
       _x: -20,
-      _y: 20
+      _y: 'center'
     }
   ]
   const rote = false

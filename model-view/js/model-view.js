@@ -19,6 +19,7 @@ class ModelView {
     this.modleAutoX = true // 是否托管窗口位置X 
     this.modleAutoY = true // 是否托管窗口位置Y 
     this.limitY = 0.8 // 限制窗口居中高度
+    this.limitTextY = 1 // 限制窗口文字居中高度约束
     this.startX = (this.windowWidth - this.boxW)/2 // 窗口起点X
     this.startY = (this.windowHeight - this.boxH)/2 // 窗口起点y
     this.scanCode = true // 是否开启扫描线
@@ -33,10 +34,12 @@ class ModelView {
     this.snapshot = [] // 截取画布集合
     this.textNode = [] // 文本节点
     this.getPercent = (text) => { // 获取百分值
-      if (typeof text === 'string') {
-        const reg = new RegExp(/^(\-?[1-9]\d+)%$/i)
-        const arr = text.match(reg)
+      const reg = new RegExp(/^(\-?[1-9]\d+)%$/i)
+      const arr = text.match(reg)
+      if (!!arr && typeof text === 'string') {
         return arr && arr[1]/100
+      } else {
+        return 0.5
       }
     }
     this.reset = () => {
@@ -86,21 +89,17 @@ class ModelView {
           })
         }
         if (textNode) {
-          const list = textNode.map(item => {
-            if (typeof item._x === 'string') {
-              item._x = this.windowWidth * this.getPercent(item._x)
-            }
-            if (typeof item._y === 'string') {
-              item._y = this.windowHeight * this.getPercent(item._y)
-            }
-            return new TextNode(item)
-          })
-          this.textNode = list
+          this.textNode = textNode
         }
         this.draw({rote:options.rote})
         // 取景框图片(网络图片要通过 getImageInfo / downloadFile 先下载)
         if (this.boxImagePath.length > 0) {
-          this.drawBoxImage(this.boxImagePath,this.startX,this.startY,this.boxW,this.boxH,options.rote)
+          const initBoximgStartX = options.initBoximgStartX ? options.initBoximgStartX : 0
+          const initBoximgStartY = options.initBoximgStartY ? options.initBoximgStartY : 0
+          const initBoximgW = options.initBoximgW ? options.initBoximgW : 0
+          const initBoximgH = options.initBoximgH ? options.initBoximgH : 0
+          // this.drawBoxImage(this.boxImagePath,this.startX,this.startY,this.boxW,this.boxH,options.rote)
+          this.drawBoxImage(this.boxImagePath,this.startX+initBoximgStartX,this.startY+initBoximgStartY,initBoximgW,initBoximgH,options.rote)
         }
         this.drawText()
         setTimeout(() => {
@@ -264,17 +263,37 @@ class ModelView {
     this.drawText = (list=[],extend=true) => {
       if (list.length < 1) {
         list = this.textNode 
-      } else {
-        list = list.map(item => {
-          if (typeof item._x === 'string') {
-            item._x = this.windowWidth * this.getPercent(item._x)
-          }
-          if (typeof item._y === 'string') {
-            item._y = this.windowHeight * this.getPercent(item._y)
-          }
-          return new TextNode(item)
-        })
       }
+      list = list.map(item => {
+        let fontSize = item.size ? item.size : 14
+        if (item._x === 'center') {
+          if (item.rote !== false) {
+            item._x = (this.windowWidth-fontSize)/2
+            console.log(item._x,8888);
+          } else {
+            // this.$el.font = 'italic bold '+item.size+'px cursive'
+            this.$el.setFontSize(item.size)
+            const metrics = this.$el.measureText(item.text)
+            item._x = (this.windowWidth/0.8-metrics.width)/2
+            console.log(item._x,8888);
+          }
+        } else if (typeof item._x === 'string') {
+          item._x = this.windowWidth * this.getPercent(item._x)
+        }
+        if (item._y === 'center') {
+          if (item.rote !== false) {
+            // this.$el.font = 'italic bold '+item.size+'px cursive'
+            this.$el.setFontSize(item.size)
+            const metrics = this.$el.measureText(item.text)
+            item._y = (this.windowHeight*this.limitTextY-metrics.width)/2
+          } else {
+            item._y = (this.windowHeight-fontSize)/2
+          }
+        } else if (typeof item._y === 'string') {
+          item._y = this.windowHeight * this.getPercent(item._y)
+        }
+        return new TextNode(item)
+      })
       list.map(({rote, text, _x, _y, color='#fff', size=20}) => {
         if (text) {
           this.$el.setFontSize(size)
@@ -289,12 +308,10 @@ class ModelView {
             this.$el.translate(this.windowWidth, 0)
             this.$el.rotate(rote * Math.PI / 180)
             this.$el.fillText(text, _y, (this.windowWidth-_x))
-          } else {
-            this.$el.fillText(text, _x, _y)
-          }
-          if (rote !== false) {
             this.$el.rotate((-rote) * Math.PI / 180)
             this.$el.translate(-this.windowWidth, 0)
+          } else {
+            this.$el.fillText(text, _x, _y)
           }
           this.$el.draw(extend)
         }
@@ -464,6 +481,20 @@ function fetchImagePath(path) {
 }
 // 画模态框
 // 画模态框的扫描线
+
+//创建动画
+function scanLineAnimation(params) {
+  const animation = wx.createAnimation({
+    duration:2500,
+    timingFunction:'linear',
+    delay: 0,
+    transformOrigin: "0% 100%",
+})
+  animation.translateY(0).step()
+  animation.translateY(120).step()
+  return animation.export()
+}
+
 
 module.exports = ModelView
 
