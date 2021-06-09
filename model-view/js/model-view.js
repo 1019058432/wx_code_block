@@ -30,9 +30,9 @@ class ModelView {
     this.scanLineColor = "#06f"; // 线的颜色
     this.line_width = this.boxW  // 线宽
     this.line_height = 2 // 线高(粗细)
-    this.drawScanLineInCrement = 1; // 增量
+    this.drawScanLineInCrement = 2; // 增量
     this.drawScanLineCurrentY = this.startY; // 显示线的Y值,即画线起点x
-    this.currentTime = 150; // 画线定时器循环间隔时间
+    this.currentTime = 50; // 画线定时器循环间隔时间
     this.$bgEl = null // canvasBg对象
     this.$lineEl = null // canvasLine对象
     this.snapshot = [] // 截取画布集合
@@ -99,8 +99,8 @@ class ModelView {
           this.textNode = textNode
         }
         this.draw({rote:options.rote})
-        // 初始化扫描线
-        this.initLine(options.lineImageUrl)
+        // 初始化扫描线(目前drawImage比putImageData更快故不必要将路径读取为内存的像素数组)
+        // this.initLine(options.lineImageUrl)
         // 取景框图片(网络图片要通过 getImageInfo / downloadFile 先下载)
         if (this.boxImagePath.length > 0) {
           const initBoximgStartX = options.initBoximgStartX ? options.initBoximgStartX : 0
@@ -131,7 +131,7 @@ class ModelView {
         this.drawUrlToCanvas(img,0,0,this.boxW,this.line_height,false,this.$lineEl).then(re => {
           this.getCanvasBlock(0,0,this.boxW,this.line_height,this.canvasLineId).then(data => {
             this.drawLineImage = data.data
-            console.log(this.drawLineImage);
+            // console.log(this.drawLineImage);
           })
         })
       } else if ( Object.prototype.toString.call(img) === '[object Array]' && img.length > 0) {
@@ -262,31 +262,32 @@ class ModelView {
       // 填充的样式
       if (this.scanCode) { // 是否开启扫描
         // 取景框图片(网络图片要通过 getImageInfo / downloadFile 先下载)
-        if (this.lineImageUrl.length > 0) {
-        // if (this.drawLineImage.length > 0) {
-          // this.$lineEl.clearRect(this.startX, this.startY, this.boxW, this.boxH)
-          // console.log(this.drawLineImage.length);
-          // console.log(Math.ceil(this.drawLineX),Math.ceil(this.drawScanLineCurrentY),this.line_width,this.line_height);
-          // this.drawImageData(this.drawLineImage,Math.ceil(this.drawLineX), Math.ceil(this.drawScanLineCurrentY), this.line_width, this.line_height,this.canvasLineId).catch(err=> {
-          //   // console.log(err);
-          // })
-          this.drawUrlToCanvas(this.lineImageUrl,Math.ceil(this.drawLineX), Math.ceil(this.drawScanLineCurrentY), this.line_width, this.line_height,false,this.$lineEl)
-        } else {
-          // 旋转
-          if (rote !== false) {
-            this.$lineEl.translate(this.windowWidth, 0)
-            this.$lineEl.rotate(rote * Math.PI / 180)
+        // 旋转
+        if (rote !== false) {
+          this.$lineEl.translate(this.windowWidth, 0)
+          this.$lineEl.rotate(rote * Math.PI / 180)
+        }
+        if (this.lineImageUrl.length > 0 || this.drawLineImage.length > 0) {
+          if (this.drawLineImage.length > 0) { //待修正+++++
+            this.$lineEl.clearRect(this.startX, this.drawScanLineCurrentY, this.boxW, this.boxH) //清除区域
+            this.$lineEl.draw(false)
+            this.drawImageData(this.drawLineImage,Math.ceil(this.drawLineX), Math.ceil(this.drawScanLineCurrentY), this.boxW,this.line_height,this.canvasLineId).catch(err=> {
+              console.log(err);
+            })
+          } else {
+            this.drawUrlToCanvas(this.lineImageUrl,Math.ceil(this.drawLineX), Math.ceil(this.drawScanLineCurrentY), this.line_width, this.line_height,rote,this.$lineEl)
           }
-          this.$lineEl.clearRect(this.startX, this.startY, this.boxW, this.boxH)
+        } else {
+          this.$lineEl.clearRect(this.startX, this.startY, this.boxW, this.boxH) //清除区域
           this.$lineEl.fillStyle = this.scanLineColor;
           this.$lineEl.rect(this.drawLineX, this.drawScanLineCurrentY, this.line_width, this.line_height)
           this.$lineEl.fill()
-          // 回旋
-          if (rote !== false) {
-            this.$lineEl.rotate((-rote) * Math.PI / 180)
-            this.$lineEl.translate(-this.windowWidth, 0)
-          }
-          this.$lineEl.draw() // 继续上一次的画
+          this.$lineEl.draw()
+        }
+        // 回旋
+        if (rote !== false) {
+          this.$lineEl.rotate((-rote) * Math.PI / 180)
+          this.$lineEl.translate(-this.windowWidth, 0)
         }
       }
       
@@ -408,10 +409,8 @@ class ModelView {
         } else if (data.length < 1) {
           reject({ state:false,message: '未初始化或参数类型有误'})
         }
-        // console.log(data.length);
-        // const imageData = new Uint8ClampedArray([110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113,110,111,112,113])
+        // const imageData = new Uint8ClampedArray([110,111,112,113])
         // console.log(typeof data444);
-        // console.log(Math.ceil(this.drawLineX),Math.ceil(this.drawScanLineCurrentY),this.line_width,this.line_height);
         wx.canvasPutImageData({
           canvasId,
           x,
@@ -423,7 +422,7 @@ class ModelView {
             resolve(res)
           },
           fail (err) {
-            // console.log(err);
+            console.log(err);
             reject(err)
           }
         })

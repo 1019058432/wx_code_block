@@ -15,7 +15,7 @@ function CSS() {
 function wxml() {
   const str = `
   <canvas wx:if="{{showCanvasModelView}}" id="canvasModelView" class="canvasOne" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:10;" canvas-id="modelViewBgCanvas" binderror="errorModelView"></canvas>
-        <canvas wx:if="{{showCanvasModelView}}" id="canvasModelView" class="canvasOne" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:11;" canvas-id="modelViewLineCanvas" binderror="errorModelView"></canvas>
+        <canvas wx:if="{{showCanvasModelView && showScanLine}}" id="canvasModelView" class="canvasOne" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:11;" canvas-id="modelViewLineCanvas" binderror="errorModelView"></canvas>
   `
 }
 function js(flag) {
@@ -65,8 +65,8 @@ function openModelView () {
       _y: 'center'
     }
   ]
-  const rote = false
-  const boxImagePath = '../../images/scan-qrcode.png'//path
+  const rote = false // 画面是否旋转
+  const boxImagePath = '../../images/scan-qrcode.png'//path 取景框内的背景图
   modelView.init({
     canvasBgId: 'modelViewBgCanvas',
     canvasLineId: 'modelViewLineCanvas',
@@ -79,9 +79,9 @@ function openModelView () {
       boxH: 282,
       line_width: 160,
       showBorder: false,
-      // scanCode: false,
-      currentTime: 20,
-      lineImageUrl: '../../images/scan-line.png',
+      // scanCode: false, // 默认开启扫描线
+      currentTime: 20,//20, // 扫描速度毫秒值
+      lineImageUrl: '../../images/scan-line.png', // 扫描线图
       rote: rote,
       boxImagePath,
       initBoximgStartX: 37,
@@ -93,35 +93,10 @@ function openModelView () {
     },
     textNode
   }).then(response => {
-    // 控制CSS属性上挂载的变量
-    if (rote !== false) {
-      this.setData({
-        // showScanLine: true,
-        // animation: this.scanLineAnimation(),
-        classScanLine: 'scan-line',
-        scanLineTop: modelView.startX,
-        scanLineLeft: modelView.startY,
-        scanLineWidth: modelView.boxW,
-        scanLineRote: rote
-      },() => {
-      this.setData({
-        classScanLine: 'scan-line',
-      })
-      })
-    } else {
-      this.setData({
-        // showScanLine: true,
-        // animation: this.scanLineAnimation(),
-        scanLineTop: modelView.startY,
-        scanLineLeft: modelView.startX,
-        scanLineWidth: modelView.boxW,
-        scanLineRote: rote
-      },() => {
-        this.setData({
-          classScanLine: 'scan-line',
-        })
-      })
-    }
+    // 控制显示扫描线、如果需要从头开始扫，则应将modelview的drawScanLineCurrentY线起点轴的属性重置
+    this.setData({
+      showScanLine: mark.scanCode,
+    })
 
     // 一些操作实例
     // modelView.getCanvasBlock().then(response => {
