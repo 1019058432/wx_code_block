@@ -14,8 +14,12 @@ function CSS() {
 
 function wxml() {
   const str = `
-  <canvas wx:if="{{showCanvasModelView}}" id="canvasModelView" class="canvasOne" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:10;" canvas-id="modelViewBgCanvas" binderror="errorModelView"></canvas>
-        <canvas wx:if="{{showCanvasModelView && showScanLine}}" id="canvasModelView" class="canvasOne" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:11;" canvas-id="modelViewLineCanvas" binderror="errorModelView"></canvas>
+  <!-- 取景框 -->
+      <view>
+        <canvas wx:if="{{showCanvasModelView}}" id="canvasModelView" class="canvasOne" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:10;" canvas-id="modelViewBgCanvas" binderror="errorModelView"></canvas>
+        <canvas wx:if="{{showCanvasModelView && showScanLine}}" id="canvasModelLineView" class="canvasOne" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:11;" canvas-id="modelViewLineCanvas" binderror="errorModelView"></canvas>
+        <canvas wx:if="{{showCanvasModelView}}" id="canvasModelTextView" class="canvasOne" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:12;" canvas-id="modelViewTextCanvas" binderror="errorModelView"></canvas>
+      </view>
   `
 }
 function js(flag) {
@@ -27,7 +31,7 @@ function js(flag) {
   // data
   const data = {
     showCanvasModelView: false, // 显示模态框
-    
+    showScanLine: false, // 显示扫描线
   }
   // methods
   if (flag) {
@@ -38,38 +42,48 @@ function openModelView () {
   // 开启模态框
   const modelView = new ModelView()
   mark = modelView
-  
   const textNode = [
     {
-      text: '测试1',
-      rote: false,
-      _x: '10%',
-      _y: 20
-    },
-    {
-      text: '测试2',
-      rote: 90,
-      _x: 100,
-      _y: '-10%'
-    },
-    {
-      text: '测试333',
-      rote: 90,
-      _x: 10,
-      _y: 'center'
-    },
-    {
+      name: 'test3',
       text: '请将图中所示位置放入框内并保持稳定',
+      color: '#ea8b3a',
       rote: 90,
       _x: -20,
       _y: 'center'
-    }
+    },
+    {
+      name: 'test2',
+      text: '顶部文字',
+      color: '#fff', //默认白色可省略
+      size: 20,
+      rote: false,
+      _x: 'center',
+      _y: 40
+    },
+    {
+      name: 'test2',
+      text: '底部文字',
+      color: '#de6a07',
+      rote: false,
+      _x: 'center',
+      _y: '70%'
+    },
+    {
+      name: 'test4',
+      text: '左部文字',
+      color: '#f18a0a',
+      size: 18,
+      rote: 90,
+      _x: 20,
+      _y: 'center'
+    },
   ]
   const rote = false // 画面是否旋转
   const boxImagePath = '../../images/scan-qrcode.png'//path 取景框内的背景图
   modelView.init({
     canvasBgId: 'modelViewBgCanvas',
     canvasLineId: 'modelViewLineCanvas',
+    canvasTextId: 'modelViewTextCanvas',
     options: {
       // startX: 150,
       // startY:50,
@@ -93,10 +107,34 @@ function openModelView () {
     },
     textNode
   }).then(response => {
-    // 控制显示扫描线、如果需要从头开始扫，则应将modelview的drawScanLineCurrentY线起点轴的属性重置
-    this.setData({
-      showScanLine: mark.scanCode,
-    })
+      this.setData({
+        showScanLine: mark.scanCode,
+      })
+      setTimeout(() => {
+        const newNode = [
+          {
+            name: 'test444',
+            text: '请将图中',
+            rote: 90,
+            _x: 20,
+            _y: 'center'
+          }
+        ]
+        mark.drawText(newNode)
+      },1000)
+      setTimeout(() => {
+        const newNode = [
+          'test3', // 仅擦除文本
+          { // 擦除并替换文本
+            name: 'test444',
+            text: '请将图中ddddddddd',
+            rote: 90,
+            _x: -40,
+            _y: 'center'
+          }
+        ]
+        mark.clearTextNode(newNode)
+      },2000)
 
     // 一些操作实例
     // modelView.getCanvasBlock().then(response => {
@@ -122,6 +160,4 @@ function openModelView () {
   }).catch(error => {
     console.log(error);
   })
-  // this.fetchImagePath('./images/logo.png').then(path => {
-  // })
 }

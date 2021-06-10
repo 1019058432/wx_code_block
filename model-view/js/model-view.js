@@ -2,6 +2,7 @@ class ModelView {
   constructor() {
     this.canvasBgId = null
     this.canvasLineId = null
+    this.canvasTextId = null
     this.drawModelViewScanLineInterval = null; // 循环定时器
     this.windowWidth = 750
     this.windowHeight = 920
@@ -32,12 +33,12 @@ class ModelView {
     this.line_height = 2 // 线高(粗细)
     this.drawScanLineInCrement = 2; // 增量
     this.drawScanLineCurrentY = this.startY; // 显示线的Y值,即画线起点x
-    this.currentTime = 50; // 画线定时器循环间隔时间
+    this.currentTime = 150; // 画线定时器循环间隔时间
     this.$bgEl = null // canvasBg对象
     this.$lineEl = null // canvasLine对象
     this.snapshot = [] // 截取画布集合
     this.textNode = [] // 文本节点
-    this.defaultTextSize = 14
+    this.defaultTextSize = 16
     this.getPercent = (text) => { // 获取百分值
       const reg = new RegExp(/^(\-?[1-9]\d+)%$/i)
       const arr = text.match(reg)
@@ -50,7 +51,7 @@ class ModelView {
     this.reset = () => {
       this.draw({imageData: this.snapshot[0]})
     }
-    this.init = ({canvasBgId,canvasLineId,options,textNode,limitY=0.8}) =>{
+    this.init = ({canvasBgId,canvasLineId,canvasTextId,options,textNode,limitY=0.8}) =>{
       return new Promise((resolve, reject) => {
         const result = wx.getSystemInfoSync()
         this.windowHeight = result.windowHeight
@@ -59,13 +60,15 @@ class ModelView {
         this.startY = (this.windowHeight*limitY - this.boxH)/2
         this.drawLineX = this.startX + 1
         this.drawLineY = this.startY
-        if (!canvasBgId || !canvasLineId) {
+        if (!canvasBgId || !canvasLineId || !canvasTextId) {
           throw new ReferenceError("Canvas ID cannot be empty")
         }
         this.$bgEl = wx.createCanvasContext(canvasBgId)
         this.canvasBgId = canvasBgId
         this.$lineEl = wx.createCanvasContext(canvasLineId)
         this.canvasLineId = canvasLineId
+        this.$textEl = wx.createCanvasContext(canvasTextId)
+        this.canvasTextId = canvasTextId
         if (options) {
           if (options.startX) {
             this.modleAutoX = false
@@ -293,8 +296,11 @@ class ModelView {
       
     }
     this.drawText = (list=[],extend=true) => {
+      let isNew = false // 标记数据来源
       if (list.length < 1) {
         list = this.textNode 
+      } else {
+        isNew = true
       }
       list = list.map(item => {
         if (item.text) {
@@ -304,13 +310,11 @@ class ModelView {
           if (item._x === 'center') {
             if (item.rote !== false) {
               item._x = (this.windowWidth-item.size)/2
-              console.log(item._x,8888);
             } else {
               // this.$bgEl.font = 'italic bold '+item.size+'px cursive'
               this.$bgEl.setFontSize(item.size)
               const metrics = this.$bgEl.measureText(item.text)
-              item._x = (this.windowWidth/0.8-metrics.width)/2
-              console.log(item._x,8888);
+              item._x = (this.windowWidth-metrics.width)/2
             }
           } else if (typeof item._x === 'string') {
             item._x = this.windowWidth * this.getPercent(item._x)
@@ -331,10 +335,25 @@ class ModelView {
         }
         return false
       })
+      // 如果是从外界传入节点数据，则合并相同的name、增加新的节点
+      if (isNew) {
+        list.map(item => {
+          let index = this.textNode.findIndex(element => element.name === item.name)
+          if (index !== -1) {
+            this.textNode.splice(index,1,item)
+          } else {
+            this.textNode.push(item)
+          }
+        })
+      }
+      let flag = false // 标记是否需要画
       list.map(({rote, text, _x, _y, color='#fff', size=20}) => {
         if (text) {
-          this.$bgEl.setFontSize(size)
-          this.$bgEl.setFillStyle(color)
+          if (flag === false) {
+            flag = true
+          }
+          this.$textEl.setFontSize(size)
+          this.$textEl.setFillStyle(color)
           if (_x < 0) {
             _x = this.windowWidth + _x
           }
@@ -342,17 +361,19 @@ class ModelView {
             _y = this.windowHeight + _y
           }
           if (rote !== false) {
-            this.$bgEl.translate(this.windowWidth, 0)
-            this.$bgEl.rotate(rote * Math.PI / 180)
-            this.$bgEl.fillText(text, _y, (this.windowWidth-_x))
-            this.$bgEl.rotate((-rote) * Math.PI / 180)
-            this.$bgEl.translate(-this.windowWidth, 0)
+            this.$textEl.translate(this.windowWidth, 0)
+            this.$textEl.rotate(rote * Math.PI / 180)
+            this.$textEl.fillText(text, _y, (this.windowWidth-_x))
+            this.$textEl.rotate((-rote) * Math.PI / 180)
+            this.$textEl.translate(-this.windowWidth, 0)
           } else {
-            this.$bgEl.fillText(text, _x, _y)
+            this.$textEl.fillText(text, _x, _y)
           }
-          this.$bgEl.draw(extend)
         }
       })
+      if (flag) {
+        this.$textEl.draw(extend)
+      }
     }
     this.writeText = ({data,textNode}) => {
       this.draw({cover:true, imageData:data, textNode})
@@ -482,6 +503,44 @@ class ModelView {
           resolve()
         })
       })
+    }
+    this.clearTextNode = (target) => {
+      let flag = false // 是否存在可擦除节点
+      let newNode = [] // 是否存在可擦除节点
+      target.map(element => {
+        let node
+        if (typeof element != 'string') {
+          newNode.push(element)
+          node =this.textNode.find(item => item.name === element.name)
+        } else {
+          node =this.textNode.find(item => item.name === element)
+        }
+        if (node !== undefined) {
+          if (flag === false) {
+            flag = true
+          }
+          this.$textEl.setFontSize(node.size)
+          const metrics = this.$textEl.measureText(node.text)
+          var _y = node._y
+          var _x = node._x
+          if (node.rote !== false) {
+            if (_x < 0) {
+              _x = this.windowWidth + _x
+            }
+            if (_y < 0) {
+              _y = this.windowHeight + _y
+            }
+            this.$textEl.clearRect(_x-5,_y-7, node.size+4.5, metrics.width+12) //清除区域
+          } else {
+            this.$textEl.clearRect(_x-2, _y-15, metrics.width+2, node.size+7) //清除区域
+          }
+        }
+      })
+      if (newNode) { // 是否需要重写节点
+        this.drawText(target,true)
+      } else if (flag) {
+        this.$textEl.draw(true)
+      }
     }
     this.clearInterval = () => {
       clearInterval(this.drawModelViewScanLineInterval)
