@@ -530,14 +530,14 @@ class ModelView {
             if (_y < 0) {
               _y = this.windowHeight + _y
             }
-            this.$textEl.clearRect(_x-5,_y-7, node.size+4.5, metrics.width+12) //清除区域
+            this.$textEl.clearRect(_x-5,_y-17, node.size+4.5, metrics.width+19) //清除区域
           } else {
-            this.$textEl.clearRect(_x-2, _y-15, metrics.width+2, node.size+7) //清除区域
+            this.$textEl.clearRect(_x-2, _y-22, metrics.width+2, node.size+17) //清除区域
           }
         }
       })
       if (newNode) { // 是否需要重写节点
-        this.drawText(target,true)
+        this.drawText(target)
       } else if (flag) {
         this.$textEl.draw(true)
       }
